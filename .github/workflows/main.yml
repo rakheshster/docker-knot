@@ -8,7 +8,7 @@ on:
       runs-on:
         description: "self-hosted | ubuntu-latest"
         required: false
-        default: 'self-hosted'
+        default: 'ubuntu-latest'
 # I am commenting this stuff out as I don't use it any more. I now pull in the info via a JSON file.
 # I wanted to leave this behind however for future reference.
 #    inputs:

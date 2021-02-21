@@ -15,46 +15,11 @@ LABEL maintainer="Rakhesh Sasidharan"
 
 # Get the build-dependencies for everything I plan on building later
 # common stuff: git build-base libtool xz cmake gnupg (to verify)
-# kea: (https://kea.readthedocs.io/en/kea-1.6.2/arm/install.html#build-requirements) build-base libtool openssl-dev boost-dev log4cplus-dev automake
 # knot dns: pkgconf gnutls-dev userspace-rcu-dev libedit-dev libidn2-dev fstrm-dev protobuf-c-dev lmdb-dev
 RUN apk add --update --no-cache \
     git build-base libtool xz cmake gnupg \
-    openssl-dev boost-dev log4cplus-dev automake \
     pkgconf gnutls-dev userspace-rcu-dev libedit-dev libidn2-dev fstrm-dev protobuf-c-dev lmdb-dev
 RUN rm -rf /var/cache/apk/*
-
-################################## KEA DHCP ####################################
-# This image is to only build Kea DHCP
-FROM alpinebuild AS alpinekea
-
-# ENV KEA_VERSION 1.7.10
-ENV KEA_VERSION 1.8.2
-
-LABEL stage="alpinekea"
-LABEL maintainer="Rakhesh Sasidharan"
-
-# Download the source & build it
-ADD https://downloads.isc.org/isc/kea/${KEA_VERSION}/kea-${KEA_VERSION}.tar.gz /tmp/
-ADD https://downloads.isc.org/isc/kea/${KEA_VERSION}/kea-${KEA_VERSION}.tar.gz.asc /tmp/
-# Import the PGP key used by ISC (https://www.isc.org/pgpkey/; get from https://downloads.isc.org/isc/pgpkeys/)
-# Note to self: Using gpg --recv-keys fails for this key on the Debian version of gpg; see https://superuser.com/questions/1485213/gpg-cant-import-key-new-key-but-contains-no-user-id-skipped
-# Workaround is to use the Ubuntu key server or download the key directly and import. 
-# RUN gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 0x156890685EA0DF6A1371EF2017CC5DB1F0088407
-RUN wget -qO - https://downloads.isc.org/isc/pgpkeys/codesign2021.txt | gpg --import
-# Verify the download (exit if it fails)
-RUN gpg --status-fd 1 --verify /tmp/kea-${KEA_VERSION}.tar.gz.asc /tmp/kea-${KEA_VERSION}.tar.gz 2>/dev/null | grep -q "GOODSIG 17CC5DB1F0088407" \
-    || exit 1
-
-WORKDIR /src
-RUN tar xzf /tmp/kea-${KEA_VERSION}.tar.gz -C ./
-WORKDIR /src/kea-${KEA_VERSION}
-# Configure kea to expect everything in / (--prefix=/) but when installing put everything into /usr/local (via DESTDIR=) (I copy the contents of this to / in the final image)
-RUN ./configure --prefix=/ --with-openssl
-RUN make && DESTDIR=/usr/local make install
-
-# Disable keactrl as its broken under alpine (ps -p does not work) and also it conflicts with s6 if I try to stop etc. 
-# The only thing I need keactrl for is to reload the config, for that use the included kea-dhcpx-reload script which I provide.
-RUN chmod -x /usr/local/sbin/keactrl
 
 ################################## BUILD KNOT DNS ####################################
 # This image is to only build Knot DNS
@@ -82,7 +47,6 @@ WORKDIR /src/knot-${KNOTDNS_VERSION}
 RUN ./configure --prefix=/ --enable-dnstap --disable-systemd
 RUN make && DESTDIR=/usr/local make install
 
-
 ################################### RUNTIME ENVIRONMENT FOR KEA & KNOT ####################################
 # This image has all the runtime dependencies, the built files from the previous stage, and I also create the groups and assign folder permissions etc. 
 # I got to create the folder after copying the stuff from previous stage so the permissions don't get overwritten
@@ -93,14 +57,12 @@ FROM mybase AS alpineruntime
 # Knot: libuv luajit lmdb gnutls userspace-rcu libedit libidn2
 RUN apk add --update --no-cache ca-certificates tzdata \
     drill \
-    openssl log4cplus boost \
     libuv luajit lmdb gnutls userspace-rcu libedit libidn2 fstrm protobuf-c \
     nano
 RUN rm -rf /var/cache/apk/*
 
 # /usr/local/bin -> /bin etc.
 COPY --from=alpineknot /usr/local/ /
-COPY --from=alpinekea /usr/local/ /
 
 RUN addgroup -S knot && adduser -D -S knot -G knot
 RUN mkdir -p /var/lib/knot && chown knot:knot /var/lib/knot
@@ -111,18 +73,17 @@ RUN mkdir -p /var/run/knot && chown knot:knot /var/run/knot
 FROM alpineruntime
 
 LABEL maintainer="Rakhesh Sasidharan"
-LABEL org.opencontainers.image.source=https://github.com/rakheshster/docker-kea-knot
+LABEL org.opencontainers.image.source=https://github.com/rakheshster/docker-knot
 
 # Copy the config files & s6 service files to the correct location
 COPY root/ /
 
 # NOTE: s6 overlay doesn't support running as a different user. However, Knot is configured to run as a non-root user in its config. Kea needs to run as root. 
 
-EXPOSE 53/udp 53/tcp 8080/tcp
+EXPOSE 53/udp 53/tcp
 # Knot DNS runs on 53. 
-# Kea requires 8080 for HA
 
 HEALTHCHECK --interval=5s --timeout=3s --start-period=5s \
-    CMD drill @127.0.0.1 -p 53 google.com || exit 1
+    CMD drill @127.0.0.1 -p 53 ${TESTDOMAIN} || exit 1
 
 ENTRYPOINT ["/init"]

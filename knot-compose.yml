@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+    kea-knot:
+        image: rakheshster/knot:latest
+        container_name: knot
+        ports:
+            - "53:53/udp"
+            - "53:53/tcp"
+        volumes:
+            - "knot_config:/etc/knot"
+            - "knot_zones:/var/lib/knot/zones"
+        environment:
+            - "TZ=Europe/London"
+            # this is the zone I am hosting so I use it as a test
+            - "TESTZONE=raxnet.uk"
+        restart: unless-stopped
+        cap_add:
+            # need this for the port 53 mapping
+            - NET_ADMIN
+        logging:
+            # keep 3 log files, maximum size of 10m (default is unlimited)
+            options:
+                max-size: "10m"
+                max-file: "3"
+
+# I specify the volume name again via "name" so that compose creates the volume with that name
+# If I don't do this the volume name before <projectname or foldername>-<the volume name below>. Example: docker-knot-knot_config
+volumes:
+    knot_config:
+        name: knot_config
+    knot_zones:
+        name: knot_zones

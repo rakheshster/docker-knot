@@ -1,121 +1,20 @@
-# Kea + Knot + Docker
-![Buildx & Push [Debian]](https://github.com/rakheshster/docker-kea-knot/workflows/Docker%20Build%20&%20Push%20%5BDebian%5D/badge.svg)
-![Buildx & Push [Alpine]](https://github.com/rakheshster/docker-kea-knot/workflows/Docker%20Build%20&%20Push%20%5BAlpine%5D/badge.svg)
+# Knot + Docker
+![Buildx & Push [Alpine]](https://github.com/rakheshster/docker-knot/workflows/Docker%20Build%20&%20Push%20%5BAlpine%5D/badge.svg)
 
-## What is this?
-This is a Docker image containing [Kea (for DHCP)](https://www.isc.org/kea/) and [Knot DNS](https://www.knot-dns.cz/) (for authoritative DNS; *not* a resolver). 
+# NOTE
+I don't think anyone need use this as there's an official image available [here](https://hub.docker.com/r/cznic/knot). This `README` is intentionally bare as I don't think anyone would be using this container. 
 
-Kea can provide load balanced DHCP while Knot supports dynamic updates from Kea DHCP. 
+# What is this? 
+[Knot DNS](https://www.knot-dns.cz/) (for authoritative DNS; *not* a resolver). 
 
-## Why this?
-I built this because I wanted a DHCP server for home use that could be load balanced (I run them on a couple of Raspberry Pi devices and they could fail any time) and also be able to provide name resolution for the DHCP and static clients in my network. The excellent Dnsmasq does most of this except the load balanced bit, so it was down to either Kea or DHCP server (both created by ISC) for load balanced DHCP. I decided to go with Kea as it is meant to be the [replacement for ISC DHCP](https://www.isc.org/kea/). 
+This container forked out of my [kea-knot](https://github.com/rakheshster/docker-knot) container. The latter has both ISC Kea (DHCP server) and Knot DNS (Kea can provide load balanced DHCP while Knot supports dynamic updates from Kea DHCP). I used to run that at home but recently (Feb 2021) I simplified things and now only need DNS. I could have just gone with the official Knot DNS container but I had this one around anyways and didn't want to let go. Also, mine is based on Alpine and I am attached to the [kea-knot](https://github.com/rakheshster/docker-knot) container for sentimental reasons (I learnt a lot of Docker concepts building it).
 
-Neither Kea nor DHCP server provide DNS resolution for its clients, so I needed an authoritative DNS server that supports Dynamic DNS updates so it could get DHCP assignments from Kea. The only authoritative DNS servers I could find that does this were Knot or Bind9. I decided to go with Knot as it's newer and more secure. This Docker image thus contains Kea and Knot packaged together with some config files thrown in to show how things could be setup. 
-
-ISC provides packages for Kea but they are for the x64 architecture whereas I want them for the arm/ arm64 architecture. Hence I have to compile Kea anyways and I figure I might as well containeraize it. 
-
-## Debian and Alpine?
-Initially I based this image on Alpine but I quickly realised that Kea takes ages to compile on it. A `docker builds build` multi arch build takes a whooping 17 hours while the same on a Debian based image is only 8 hours. I have no idea why this is the case. Maybe it's because Alpine uses `musl` while Debian uses `glibc` for the C libraries? Since I had put in the effort for Alpine initially I decided to keep it around as the default but also add the Debian one as an alternative. Hence the additional `Dockerfile.debian` and two set of Docker images. I figure for the end user the compile times don't matter as it's just a simple download after all (both images are less than 300 MB in compressed size). 
-
-*Update*: Once I switched from Kea 1.7 to 1.8 the Alpine version too buids as fast as the Debian version. Both take about 9 hours now. 
-
-## Getting this
-It is best to target a specific release when pulling this repo. Either switch to the correct tag after downloading, or download a zip of the latest release from the [Releases](https://github.com/rakheshster/docker-kea-knot/releases) page. In the interest of speed however, as mentioned above I'd suggest downloading the built image from Docker Hub at [rakheshster/kea-knot](https://hub.docker.com/repository/docker/rakheshster/kea-knot).
-
-Version numbers are of the format `<kea version>-<knot version>-<patch>` and have a `-debian` suffix for the Debian variant.
-
-I will update the `<patch>` number when there's any change introduced by me (e.g. a change to the Dockerfile or the base image).
-
-## s6-overlay
-This image contains [s6-overlay](https://github.com/just-containers/s6-overlay). I like their philosophy of a Docker container being “one thing” rather than “one process per container”. This image has services for Knot DNS, Kea DHCPv4, Kea DHCPv6 (currently disabled), Kea Control Agent, and Kea Dynamic DNS. 
-
-# Running this
-## Data
-Knot has 1) its config file at `/etc/knot` and 2) stores its zones database at `/var/lib/knot/zones`. The latter is where we store our zones but these can be dynamically updated by Knot due to Dynamic DNS or DNSSEC, hence the location of `/var/lib` to store them. 
-
-Kea has 1) its config file at `/etc/kea` and 2) store its leases at `/var/lib/kea`. There are multiple config files for each Kea service. 
-
-I would recommend making Docker volumes for each of these locations and mapping them to the container. You don't need to keep the leases or zone DBs out of the container, but I prefer it that way. The way I run it at home is thus:
-
-```
-# name of the container; also used as a prefix for the volumes
-NAME="kea-knot"
-NETWORK="my_docker_network"
-IMAGE="rakheshster/kea-knot:1.8.1-3.0.2-3"
-
-# create Docker volumes to store data
-KNOT_CONFIG=${NAME}_knotconfig && docker volume create $KNOT_CONFIG
-KNOT_ZONES=${NAME}_knotzones && docker volume create $KNOT_ZONES
-KEA_CONFIG=${NAME}_keaconfig && docker volume create $KEA_CONFIG
-KEA_LEASES=${NAME}_kealeases && docker volume create $KEA_LEASES
-
-# run the container
-docker create --name "$NAME" \
-    -P --network="$NETWORK" \
-    --dns 127.0.0.1 \
-    --restart=unless-stopped \
-    --cap-add=NET_ADMIN \
-    -e TZ="Europe/London" \
-    --mount type=volume,source=$KNOT_CONFIG,target=/etc/knot \
-    --mount type=volume,source=$KNOT_ZONES,target=/var/lib/knot/zones \
-    --mount type=volume,source=$KEA_CONFIG,target=/etc/kea \
-    --mount type=volume,source=$KEA_LEASES,target=/var/lib/kea \
-    $IMAGE
-```
-
-The `.scripts/createcontainer.sh` script does exactly this. It creates the volumes and container as above and also outputs a systemd service unit file so the container is automatically launched by systemd as a service. The script does not start the container however, you can do that via `docker start <container name>`. 
-
-The timezone variable in the `docker run` command is useful so Kea & Knot set timestamps correctly. Also, Kea needs the `NET_ADMIN` capability as it is a DHCP server and needs to listen to broadcasts. I like to have a macvlan network with a separate IP for this container, but that's just my preference. The `.scripts/createcontainer.sh` lets you specify the IP address and network name and if none is specified it uses the "bridge" network. 
-
-## Knot zone editing
-The Knot documentation gives steps on how to edit the zone files safely. To make it easy I include a script called `vizone`. This is copied to the `/sbin` folder of the container. Simply do the following to edit a zone safely and have Knot reload. 
-
-```
-docker exec -it <container name> vizone <zone name>
-```
-
-This script is a wrapper around the four commands specified in [this section](https://www.knot-dns.cz/docs/2.8/html/operation.html#reading-and-editing-the-zone-file-safely) of the Knot documentation. You can also `docker exec -it <container name> knotc <options>` too. My script is entirely optional. 
-
-## Knot zone behaviour
-As said above the Knot zones are stored at `/var/lib/knot/zones` and by default Knot overwrites the zone files with changes. This behaviour is controller by the `zonefile-sync` configuration parameter (default value is `0` which tells Knot to [update the file as soon as possible](https://www.knot-dns.cz/docs/2.8/singlehtml/index.html#zonefile-sync); it is possible to disable this by setting the value to `-1` (in which case the `knotc zone-flush` command can be used to perform a manual sync or dump the changes to a separate file)). 
-
-The [zone loading](https://www.knot-dns.cz/docs/2.8/singlehtml/index.html#zone-loading), [journal behaviour](https://www.knot-dns.cz/docs/2.8/singlehtml/index.html#journal-behaviour), and [examples](https://www.knot-dns.cz/docs/2.8/singlehtml/index.html#example-1) sections in the Knot documentation are worth a read. The journal is where Knot saves changes to the zone file and is typically used to answer IXFR queries (this too can be changed such that the journal has both the zone and changes in it). By default the journal is [stored in a folder](https://www.knot-dns.cz/docs/2.7/html/reference.html#journal-db) called `journal` under `/var/lib/knot/zones`. 
-
-The default settings for these values are as follows (this is not explicitly stated in the example `knot.conf` file):
-```
-zonefile-sync: 0
-zonefile-load: whole
-journal-content: changes
-```
-
-If you want to disable the zone file from being overwritten and would prefer all changes be stored in the journal change these to:
-```
-zonefile-sync: -1
-zonefile-load: difference-no-serial
-journal-content: changes
-```
-
-Do refer to the Knot documentation for more info though. I am no Knot expert and the above is just what I use at home. 
-
-# Reloading
-If you want to reload Knot or Kea I provide some useful wrapper scripts. These simply use `s6` to reload the appropriate service. To reload Knot for instance, do:
-
-```
-docker exec -it <container name> knot-reload
-```
-
-Or for Kea DHCP4:
-
-```
-docker exec -it <container name> kea-dhcp4-reload
-```
-
-# Systemd
+# Systemd (to have the container start automatically always)
 Example unit file:
 
 ```
 [Unit]
-Description=Kea Knot Container
+Description=Knot Container
 Requires=docker.service
 After=docker.service
 
@@ -131,20 +30,3 @@ WantedBy=local.target
 Copy this file to `/etc/systemd/system/`. 
 
 Enable it in systemd via: `sudo systemctl enable <service file name>`.
-
-# Thanks!
-If you have read till here, thanks! I hope this image is of use to you. :) 
-
-Creating this image was a terrific learning experience for me. 
-
-I reworked my [stubby-unbound](https://github.com/rakheshster/docker-stubby-unbound) and [stubby-dnsmasq](https://github.com/rakheshster/docker-stubby-dnsmasq) images based on the learnings from this one. With each image I have delved more and more into Docker. 
-
-  * I got into Docker with the stubby-unbound image, but with the stubby-dnsmasq image I picked up multi-stage builds.
-  * With the kea-knot container I picked up:
-    * multi-arch builds, 
-    * got more into the mindset of Docker of having multiple layers and leveraging these (e.g creating a common [alpine-s6](https://github.com/rakheshster/docker-alpine-s6) & [debian-s6](https://github.com/rakheshster/docker-debian-s6) image to use across my containers), 
-    * started publishing to Docker Hub, 
-    * spent a lot of time with GitHub actions to build & publish this image (it took ages on my home machine for a single architecture so it was time leverage the cloud and some automation),  
-    * and Azure DevOps pipelines & ARM templates to setup self-hosted runners in Azure (because GitHub hosted runners have a time limit of 6 hours and this one takes 8-17 hours!)(the ARM template for the runner can be found [in this repo](https://github.com/rakheshster/github-runner-on-ubuntu)). 
-
-This was thus a fun exercise in that I had an itch to stratch and I went crazy with it and learnt a lot of new things. 
