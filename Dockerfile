@@ -84,6 +84,6 @@ EXPOSE 53/udp 53/tcp
 # Knot DNS runs on 53. 
 
 HEALTHCHECK --interval=5s --timeout=3s --start-period=5s \
-    CMD drill @127.0.0.1 -p 53 ${TESTDOMAIN} || exit 1
+    CMD drill @127.0.0.1 -p 53 ${TESTZONE} || exit 1
 
 ENTRYPOINT ["/init"]

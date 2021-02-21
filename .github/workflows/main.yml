@@ -1,5 +1,5 @@
 # This is the name of the workflow
-name: Docker Build & Push [Alpine]
+name: Docker Build & Push
 
 # When it runs
 on:
