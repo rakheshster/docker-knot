@@ -4,11 +4,6 @@ name: Docker Build & Push
 # When it runs
 on:
   workflow_dispatch:
-    inputs:
-      runs-on:
-        description: "self-hosted | ubuntu-latest"
-        required: false
-        default: 'ubuntu-latest'
 # I am commenting this stuff out as I don't use it any more. I now pull in the info via a JSON file.
 # I wanted to leave this behind however for future reference.
 #    inputs:
@@ -23,14 +18,10 @@ on:
 
 # And what jobs it has
 jobs:
-  # Just one job here ... imaginatively called "buildx-alpine" (that's its id at least, it doesn't have a name coz I couldn't think of something)
-  buildx-alpine:
-    # this job runs on Ubuntu / Self-hosted (whatever is uncommented below)
-    # runs-on: ubuntu-latest
-    # runs-on: [self-hosted, linux]
-    runs-on: ${{ github.event.inputs.runs-on }}
-    # set timeout to 10 days
-    timeout-minutes: 14400
+  # Just one job here ... imaginatively called "Build" (that's its id at least, it doesn't have a name coz I couldn't think of something)
+  Build:
+   # this job runs on Ubuntu
+    runs-on: ubuntu-latest
     # these are its environment variables
     env: 
       # If I were using the workflow_dispatch inputs above, I can reference them as variables here
@@ -72,37 +63,13 @@ jobs:
       #     buildx-version: latest
       #     qemu-version: latest
 
-      - name: Restore or Create a cache
-        uses: actions/cache@v2
-        id: cache
-        with:
-          # Where to store the cache
-          path: /build-cache
-          # The key created when saving a cache and the key used to search for a cache.
-          # I was doing the following initially but have changed it to not depend on the SHA any more as I'd keep the cache common for this workflow
-          # key: ${{ runner.os }}-buildx-${{ github.sha }}
-          key: $ {{ github.workflow }}
-          # An ordered list of alternative keys to use for finding the cache if no cache hit occurred for key.
-          # Not using this anymore either as the key is constant now
-          # restore-keys: |
-          #   ${{ runner.os }}-buildx-
-          # When key matches an existing cache, it's called a cache hit, and the action restores the cached files to the path directory.
-          # When key doesn't match an existing cache, it's called a cache miss, and a new cache is created if the job completes successfully. 
-          # When a cache miss occurs, the action searches for alternate keys called restore-keys.
-
       # commenting this as out as I now build and push using an action
       # - name: Docker Buildx (build)
       #   run: |
       #     IMAGENAME="${{ fromJson(steps.read_buildinfo.outputs.packageJson).imagename }}"
       #     VERSION="${{ fromJson(steps.read_buildinfo.outputs.packageJson).version  }}"
 
-      #     docker buildx build \
-      #       --platform $PLATFORMS \
-      #       --output "type=image,push=false" \
-      #       --tag ${IMAGENAME}:${VERSION} \
-      #       --tag ${IMAGENAME}:latest \
-      #       --cache-from "type=local,src=/build-cache" \
-      #       --cache-to "type=local,dest=/build-cache" ./
+      #     docker buildx build --platform $PLATFORMS --output "type=image,push=false" . --tag ${IMAGENAME}:${VERSION} -t ${IMAGENAME}:latest
 
       - name: Login to Docker Hub
         if: success() && github.event_name != 'pull_request'
@@ -130,8 +97,6 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ env.PLATFORMS }}
           push: true
-          cache-from: type=local,src=/build-cache
-          cache-to: type=local,dest=/build-cache
           tags: |
             ${{ env.IMAGENAME }}:${{ env.VERSION }}
             ${{ env.IMAGENAME }}:latest
@@ -145,12 +110,7 @@ jobs:
       #     IMAGENAME="${{ fromJson(steps.read_buildinfo.outputs.packageJson).imagename }}"
       #     VERSION="${{ fromJson(steps.read_buildinfo.outputs.packageJson).version  }}"
 
-      #     docker buildx build \
-      #     --platform $PLATFORMS \
-      #     --output "type=image,push=true" \
-      #     --tag ${IMAGENAME}:${VERSION} \
-      #     --tag ${IMAGENAME}:latest \
-      #     --cache-from "type=local,src=/build-cache" ./
+      #     docker buildx build --platform $PLATFORMS --output "type=image,push=true" . --tag ${IMAGENAME}:${VERSION} -t ${IMAGENAME}:latest
 
       # - name: Inspect image
       #   if: always() && github.event_name != 'pull_request'
