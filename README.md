@@ -1,8 +1,7 @@
 # Knot + Docker
 ![Buildx & Push [Alpine]](https://github.com/rakheshster/docker-knot/workflows/Docker%20Build%20&%20Push/badge.svg)
 
-# NOTE
-I don't think anyone need use this as there's an official image available [here](https://hub.docker.com/r/cznic/knot).
+> **I don't think anyone need use this as there's an official image available [here](https://hub.docker.com/r/cznic/knot).**
 
 # What is this? 
 [Knot DNS](https://www.knot-dns.cz/) (for authoritative DNS; *not* a resolver). 
