@@ -53,7 +53,6 @@ RUN make && DESTDIR=/usr/local make install
 FROM mybase AS alpineruntime
 
 # Get the runtimes deps for all
-# Kea: (https://kea.readthedocs.io/en/kea-1.6.2/arm/intro.html#required-software)
 # Knot: libuv luajit lmdb gnutls userspace-rcu libedit libidn2
 RUN apk add --update --no-cache ca-certificates tzdata \
     drill \
