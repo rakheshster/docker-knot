@@ -1,5 +1,4 @@
-# NOTE
-I don't think anyone need use this as there's an official image available [here](https://hub.docker.com/r/cznic/knot). This `README` is intentionally bare as I don't think anyone would be using this container. 
+**NOTE: I don't think anyone need use this as there's an official image available [here](https://hub.docker.com/r/cznic/knot).**
 
 # What is this? 
 [Knot DNS](https://www.knot-dns.cz/) (for authoritative DNS; *not* a resolver). 
