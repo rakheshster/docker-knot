@@ -15,10 +15,10 @@ LABEL maintainer="Rakhesh Sasidharan"
 
 # Get the build-dependencies for everything I plan on building later
 # common stuff: git build-base libtool xz cmake gnupg (to verify)
-# knot dns: pkgconf gnutls-dev userspace-rcu-dev libedit-dev libidn2-dev fstrm-dev protobuf-c-dev lmdb-dev
+# knot dns: pkgconf gnutls-dev userspace-rcu-dev libedit-dev libidn2-dev fstrm-dev protobuf-c-dev lmdb-dev linux-headers
 RUN apk add --update --no-cache \
     git build-base libtool xz cmake gnupg \
-    pkgconf gnutls-dev userspace-rcu-dev libedit-dev libidn2-dev fstrm-dev protobuf-c-dev lmdb-dev
+    pkgconf gnutls-dev userspace-rcu-dev libedit-dev libidn2-dev fstrm-dev protobuf-c-dev lmdb-dev linux-headers
 RUN rm -rf /var/cache/apk/*
 
 ################################## BUILD KNOT DNS ####################################
