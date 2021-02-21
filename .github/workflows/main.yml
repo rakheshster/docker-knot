@@ -73,7 +73,7 @@ jobs:
       #     qemu-version: latest
 
       - name: Restore or Create a cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.4
         id: cache
         with:
           # Where to store the cache
