@@ -16,6 +16,7 @@ ZONESPATH="/var/lib/knot/zones"
 # Make a backup of the existing zone and open the zone file in nano (yes, nano!)
 cp "${ZONESPATH}/${ZONE}.zone" "${ZONESPATH}/${ZONE}.zonebkp"
 nano -w "${ZONESPATH}/${ZONE}.zone"
+chown knot:knot "${ZONESPATH}/${ZONE}.zone"
 
 # Do a validation of the new zone
 if /sbin/knotc zone-check $ZONE ; then
